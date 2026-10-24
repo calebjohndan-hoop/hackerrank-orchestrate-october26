@@ -8,6 +8,7 @@ pip install -r code/requirements.txt # optional: everything runs on the stdlib +
 python3 code/main.py                 # audits dataset/deletion_requests.csv -> ./output.csv (518 rows)
 python3 code/evaluation/main.py --custom --verbose   # metrics vs sample_output.csv + custom cases
 python3 code/main.py --trace traces.json             # per-case reasoning: linked resources, states, citations
+python3 code/evaluation/attribution_audit.py --list  # which outputs rest on activity-timing guesses, by confidence
 ```
 
 No API key is needed. `--llm` enables an optional `claude-haiku-5-5` fallback for request

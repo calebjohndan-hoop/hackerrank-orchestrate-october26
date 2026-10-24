@@ -126,3 +126,26 @@ repo_root=/home/user/hackerrank-orchestrate-october26
 worktree=main
 parent_agent=none
 
+## [2026-10-24T17:40:00Z] Quantify timing fallback, fix double attribution, rerun
+
+User Prompt (verbatim, secrets redacted):
+the activity timing fallback worries me for the hidden 518. how many output cases depend on it? give me the count and flag which ones are low confidence
+rerun main.py and the full eval. confirm 518 rows, same schema, and tell me exactly what changed in output.csv vs before
+summarize what we changed this session and why, then commit and push
+
+Agent Response Summary:
+Added confidence tiers to timing attribution and a new attribution_audit.py: 316 of 508 deletion cases name a timing-attributed record, 73 at low confidence; none of these records drives a finding, so no status depends on the fallback. The audit exposed 6 analytics rows attributed to two cases; a first fix shifted 38 accounts and was rejected after diffing output.csv; the final fix assigns each worker action to the report time matching its measured median lead. Reran: 518 rows, same schema and order, 23 rows changed (analytics verification only), no status changes, sample and custom metrics unchanged.
+
+Actions:
+* Edited code/ghost_audit/auditor.py (confidence tiers, single-owner worker actions via TYPICAL_LEAD)
+* Created code/evaluation/attribution_audit.py; updated evaluation_report.md and README.md
+* Ran python3 code/main.py, code/evaluation/main.py --custom, attribution_audit.py; diffed output.csv vs HEAD; rebuilt code.zip
+
+Context:
+tool=Claude Code
+model=claude-opus-5-5
+branch=claude/great-mccarthy-jnpz8n
+repo_root=/home/user/hackerrank-orchestrate-october26
+worktree=main
+parent_agent=none
+

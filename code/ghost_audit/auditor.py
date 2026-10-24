@@ -31,6 +31,9 @@ LINK_LOOKAHEAD = timedelta(days=14)    # ownership of an immutable resource id m
 CATALOG_LOOKBACK = timedelta(days=7)   # catalog links are made while a request is being processed
 WORKER_WINDOW = timedelta(minutes=95)  # deletion-worker actions precede the workflow report
 WORKER_GRACE = timedelta(minutes=10)   # ...or land just after it
+# Median lead of the worker action before the workflow report, measured on actions that
+# fall in exactly one report window (account delete ~57 min, anonymise ~28 min).
+TYPICAL_LEAD = {"DELETE_RECORD": timedelta(minutes=57), "ANONYMIZE_RECORD": timedelta(minutes=28)}
 # The workflow's reported status mirrors the worker's result for the primary profile.
 STATUS_RESULT = {"COMPLETE": "SUCCESS", "PARTIALLY_COMPLETE": "PARTIAL", "NOT_STARTED": "FAILED"}
 
@@ -44,6 +47,7 @@ class ResourceView:
     citeable: bool = False             # state comes from a file captured at/before audit_at
     category: str = ""
     attributed: bool = False           # linked only through activity timing
+    confidence: str = ""               # for attributed records: high / medium / low
 
 
 @dataclass
@@ -222,10 +226,22 @@ class Auditor:
         for w in works:
             if w.user is not None:
                 groups[w.case["reported_at"]].append(w)
+        # Windows of neighbouring report times overlap; give each worker action to exactly
+        # one report time - the one whose lead best matches that action's usual lead - so a
+        # record can never be attributed to two cases.
+        report_times = sorted({parse_ts(r) for r in groups})
+        owner = {}
+        for a in self.acts.worker_events(report_times[0] - WORKER_WINDOW, report_times[-1] + WORKER_GRACE) \
+                if report_times else []:
+            fits = [r for r in report_times if r - WORKER_WINDOW <= a.ts <= r + WORKER_GRACE]
+            if fits:
+                lead = TYPICAL_LEAD.get(a.event_type, timedelta(0))
+                owner[a.activity_id] = min(fits, key=lambda r: (abs((r - a.ts) - lead), r))
         for reported_at, group in groups.items():
             group.sort(key=lambda w: case_num(w.case))
             reported = parse_ts(reported_at)
-            events = self.acts.worker_events(reported - WORKER_WINDOW, reported + WORKER_GRACE)
+            events = [a for a in self.acts.worker_events(reported - WORKER_WINDOW, reported + WORKER_GRACE)
+                      if owner.get(a.activity_id) == reported]
             for system, etype, only_complete in (("account_service", "DELETE_RECORD", False),
                                                   ("analytics_platform", "ANONYMIZE_RECORD", True)):
                 needy = [w for w in group if not any(v.system == system for v in w.views.values())]
@@ -240,11 +256,13 @@ class Auditor:
                          and (a.result == "SUCCESS" or not only_complete)]
                 cands.sort(key=lambda a: a.ts)
                 taken = set()
-                for w in needy:
+                for i, w in enumerate(needy):
                     want = STATUS_RESULT.get(w.case["reported_status"]) if system == "account_service" else None
-                    ordered = sorted((a for a in cands if a.resource_id not in taken),
-                                     key=lambda a: (want is not None and a.result != want,
-                                                    not self._admissible_sighting(a.resource_id, w), a.ts))
+
+                    def rank(a):
+                        return (want is not None and a.result != want, not self._admissible_sighting(a.resource_id, w))
+
+                    ordered = sorted((a for a in cands if a.resource_id not in taken), key=lambda a: (*rank(a), a.ts))
                     if not ordered:
                         break
                     a = ordered[0]
@@ -252,6 +270,7 @@ class Auditor:
                     v = w.views.setdefault(a.resource_id, ResourceView(a.resource_id, system))
                     v.link_reasons.append(("worker_timing", a.activity_id, reported_at))
                     v.attributed = True
+                    v.confidence = _attribution_confidence(a, ordered, rank, want, competitors=len(needy) - i)
 
     # ------------------------------------------------------------------ planning
 
@@ -278,7 +297,8 @@ class Auditor:
                       for i, (op, system, rid, ev) in enumerate(steps, 1)]
         work.trace["resources"] = {
             v.resource_id: {"links": v.link_reasons[:4], "category": v.category, "citeable": v.citeable,
-                            "state": _state_dict(v.state)} for v in work.views.values()}
+                            "attribution_confidence": v.confidence or None, "state": _state_dict(v.state)}
+            for v in work.views.values()}
 
     def audit_batch(self, cases, llm_decide=None):
         works = []
@@ -309,6 +329,23 @@ class Auditor:
                 self.refresh(w)
                 self.plan(w)
         return works
+
+
+def _attribution_confidence(chosen, ordered, rank, want, competitors):
+    """How much the evidence, rather than ordering, decided a timing attribution.
+
+    high   - the only candidate left and the only case still waiting for one;
+    medium - the workflow-status match or a citeable sighting separates it from the rest;
+    low    - a tie broken by event time / case order, or the worker result contradicts
+             the workflow's reported status."""
+    if want is not None and chosen.result != want:
+        return "low"
+    if len(ordered) == 1:
+        # Uncontested record; contested only if other cases were still waiting for one.
+        return "high" if competitors == 1 else "low"
+    if rank(chosen) < rank(ordered[1]):
+        return "medium"
+    return "low"
 
 
 PII_SYSTEMS = {"analytics_platform", "support_platform", "identity_service", "email_delivery_service"}

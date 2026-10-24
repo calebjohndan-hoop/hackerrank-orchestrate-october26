@@ -65,6 +65,27 @@ All pass (status 1.000, step F1 1.000, sequence 1.000).
 | 7 | 0.982 | 0.812 | Matched the worker result to the workflow claim (`COMPLETE↔SUCCESS`, `PARTIALLY_COMPLETE↔PARTIAL`, `NOT_STARTED↔FAILED`) when several cases share a report time; +10 min grace after `reported_at`. |
 | 8 | (same) | (same) | Screenshot/PDF fixes found by reviewing the 11 single-artefact test cases: pages listing several customers no longer link every id on the page (only catalog-linked or single-record pages); catalog aliases (`delivery_confirmation_19.pdf → object_19`, `NST-2026-0718-1842 → export_1842`, `user_17 → tombstone_17`) resolved; console semantics (healthy connector = active flow, archive in a recovery console = restorable, printed email = exposed PII). |
 
+| 9 | (same) | (same) | **Attribution audit** (`attribution_audit.py`) found 6 anonymised analytics rows each attributed to *two* cases: neighbouring report windows overlap. A first fix ("nearest report the action precedes") shifted 38 accounts to the previous case, because account deletes lead their report by ~57 min and report times are often an hour apart; samples did not move, so this was caught only by diffing `output.csv`. Final fix: each worker action belongs to the one report time whose gap best matches that action type's measured median lead (57 min delete, 28 min anonymise). Net effect: 23 rows changed, all one anonymised-analytics verification step in COMPLETE cases; no status changed; no record is named in two cases. |
+
+## Dependence on the activity-timing fallback (evaluation set)
+
+`python3 code/evaluation/attribution_audit.py --list`
+
+| Measure | Count |
+|---|---|
+| Deletion cases | 508 of 518 |
+| Cases whose steps name a timing-attributed record | **316** |
+| … weakest record `high` (only candidate, only case waiting) | 173 |
+| … weakest record `medium` (status match or citeable sighting decides) | 70 |
+| … weakest record `low` (tie broken by time / case order, or result contradicts the reported status) | **73** |
+| Cases where an attributed record drives a FINDING (could change the status) | 0 |
+
+Attributed records only ever add a VERIFY step (account absent, analytics anonymised), so
+the fallback never changes a `deletion_status`; the risk is wrong/missing verification steps.
+Calibration on the public samples (attributed record appears in the sample answer): high
+8/8, medium 6/6, low 6/7 — small numbers, so treat `low` as roughly a coin flip on the
+hidden set.
+
 Known limitations: identifier-free records sharing one report window are a genuine
 ambiguity in the evidence (≈1 in 3 sample groups); security audit records that exist only
 in organiser truth cannot be produced.
