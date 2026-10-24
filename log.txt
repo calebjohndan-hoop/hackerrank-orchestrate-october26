@@ -303,3 +303,24 @@ repo_root=/home/user/hackerrank-orchestrate-october26
 worktree=main
 parent_agent=none
 
+## [2026-10-24T18:03:22Z] Record final submission artifacts (web-chat build)
+
+User Prompt (verbatim, secrets redacted):
+@"/root/.claude/uploads/26d458db-42cc-5b21-ab74-f3ce0d1d4a06/cdca0b6f-code.zip" @"/root/.claude/uploads/26d458db-42cc-5b21-ab74-f3ce0d1d4a06/b055a5df-output.csv" make the log acc to these files
+
+Agent Response Summary:
+The user designated the uploaded code.zip and output.csv, produced by the earlier claude.ai web chat session (code/audit/ layout, Groq vision for screenshots), as the final submission. Verified them: code.zip holds README.md, code/main.py, code/run_all.py, code/audit/*.py, code/prompts/*.md and code/evaluation/ with evaluation_report.md and usage_report.md, and no API keys; output.csv has 518 rows, the exact header, every case_id, statuses 158 COMPLETE / 350 INCOMPLETE / 10 NOT_APPLICABLE, and 0 structural problems under this repo's strict validator. Re-scoring its sample_predictions.csv against sample_output.csv independently reproduced its report (status 0.969, step F1 0.917, sequence 0.500). The code/ghost_audit build produced earlier in this Claude Code session agrees on 503 of 518 statuses but is not the submitted solution. Earlier log entries were left unchanged (append-only).
+
+Actions:
+* Unzipped uploaded code.zip into a scratch folder; read its evaluation and usage reports; scanned for keys (none)
+* Validated uploaded output.csv and re-scored its sample predictions with code/evaluation/main.py functions
+* Appended this entry; committed and pushed
+
+Context:
+tool=Claude Code
+model=claude-opus-5-5
+branch=claude/great-mccarthy-jnpz8n
+repo_root=/home/user/hackerrank-orchestrate-october26
+worktree=main
+parent_agent=none
+
