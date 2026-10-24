@@ -1,0 +1,7 @@
+# Core pipeline: Python 3.10+ standard library only (sqlite3, json, csv, re).
+# PDF text: uses poppler's `pdftotext` if present, otherwise this:
+pdfplumber>=0.11
+# Screenshot OCR (only needed if code/cache/ocr_text.json is deleted):
+rapidocr-onnxruntime>=1.2
+# Optional LLM fallback for undecidable request intent (--llm):
+anthropic>=0.40

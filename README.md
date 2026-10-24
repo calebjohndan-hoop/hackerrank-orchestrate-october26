@@ -1,3 +1,39 @@
+# Solution: deletion-audit agent (`code/`)
+
+## Setup and run
+
+```bash
+python3 --version                    # 3.10+
+pip install -r code/requirements.txt # optional: everything runs on the stdlib + the committed OCR cache
+python3 code/main.py                 # audits dataset/deletion_requests.csv -> ./output.csv (518 rows)
+python3 code/evaluation/main.py --custom --verbose   # metrics vs sample_output.csv + custom cases
+python3 code/main.py --trace traces.json             # per-case reasoning: linked resources, states, citations
+```
+
+No API key is needed. `--llm` enables an optional `claude-haiku-5-5` fallback for request
+texts the intent rules cannot decide (reads `ANTHROPIC_API_KEY` from the environment); on
+this dataset it is never triggered. Reports: `code/evaluation/evaluation_report.md`,
+`code/evaluation/usage_report.md`.
+
+## Architecture
+
+| Module | Role |
+|---|---|
+| `ghost_audit/intent.py` | Does the text authorise deletion? Multilingual rules with negation; optional LLM fallback. |
+| `ghost_audit/identity.py` | Current + historical emails, phones, email hashes per `user_id` (from `user_audit_log.csv`). |
+| `ghost_audit/evidence.py` | Parses every evidence file into observations `(file, time, resource, identifiers, exists/pii/active)`: SQLite dumps (typed tables and JSON-payload replicas), JSON exports/bundles, 8 log dialects joined by trace id, text handovers, PDFs (pdftotext), screenshots (RapidOCR, cached). |
+| `ghost_audit/activity.py` | Activity stream as claims, plus grounded links: data-catalog links (with aliases), flows/backups that repopulated a record, deletion-worker timing. |
+| `ghost_audit/auditor.py` | Links resources to the subject, reconstructs the state at `audit_at`, attributes identifier-free records, plans steps. |
+| `ghost_audit/policy.py` | `deletion_rules.csv` → category → required treatment → finding / remediation / verification. |
+
+Key rules: state comes only from captures at or before `audit_at` (the latest observation
+wins, and copies across primary/replicas are merged so drift stays visible). Workflow
+statuses and `reported_result` are never treated as proof. A snapshot proves absence only for
+subjects it covers. Each citation must agree with the decided state. Remediation is ordered
+disable flows → block restores → delete → redact → anonymise, then by system and resource.
+
+---
+
 # HackerRank Orchestrate - October 2026
 
 ## Ghost Data Still Exists
