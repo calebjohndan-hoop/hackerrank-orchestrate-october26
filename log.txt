@@ -107,3 +107,22 @@ repo_root=/home/user/hackerrank-orchestrate-october26
 worktree=main
 parent_agent=none
 
+## [2026-10-24T17:10:00Z] Walkthrough of case flow and weakest module
+
+User Prompt (verbatim, secrets redacted):
+before we change anything, walk me through how a single case flows through ghost_audit, from intent detection to final steps. which module is the weakest and why
+
+Agent Response Summary:
+Traced one case (case_12) through intent, identity, evidence observations, linking, state-at-audit, attribution, policy and planning, with file:line references. Named the activity-timing attribution in auditor.py as the weakest part (a heuristic tuned on few sample groups, silent errors, no confidence signal), with intent.py's dataset-fitted rules and evidence.py's silent drops of unknown log events as runners-up. No code changes.
+
+Actions:
+* Read module outlines (grep); appended this log entry; committed and pushed
+
+Context:
+tool=Claude Code
+model=claude-opus-5-5
+branch=claude/great-mccarthy-jnpz8n
+repo_root=/home/user/hackerrank-orchestrate-october26
+worktree=main
+parent_agent=none
+
