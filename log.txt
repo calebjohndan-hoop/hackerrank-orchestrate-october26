@@ -345,3 +345,22 @@ repo_root=/home/user/hackerrank-orchestrate-october26
 worktree=main
 parent_agent=none
 
+## [2026-10-24T18:09:46Z] Final submission: this repository's build
+
+User Prompt (verbatim, secrets redacted):
+im submitting these files, update the log
+
+Agent Response Summary:
+The user is submitting the code.zip, output.csv and log.txt produced by this Claude Code session (code/ghost_audit/ build, commit c7a7f93). This supersedes the earlier entry that named the web-chat build (code/audit/) as the final submission. Submitted output.csv: 518 rows, 153 COMPLETE / 355 INCOMPLETE / 10 NOT_APPLICABLE, 0 structural problems, md5 a54ccd283f8991d4f39b55919f240b29. Submitted code.zip md5 99129158548f44b67a2269b6b29116ab. The run that produced output.csv made 0 model calls (no GROQ_API_KEY or ANTHROPIC_API_KEY set), as recorded in code/evaluation/usage_report.md. Public-sample metrics: status 1.000, step F1 0.982, sequence 0.812; 4 custom cases pass.
+
+Actions:
+* Recorded checksums of the submitted output.csv and code.zip; appended this entry; committed and pushed
+
+Context:
+tool=Claude Code
+model=claude-opus-5-5
+branch=claude/great-mccarthy-jnpz8n
+repo_root=/home/user/hackerrank-orchestrate-october26
+worktree=main
+parent_agent=none
+
