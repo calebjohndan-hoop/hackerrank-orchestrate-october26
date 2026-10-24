@@ -86,6 +86,25 @@ Calibration on the public samples (attributed record appears in the sample answe
 8/8, medium 6/6, low 6/7 — small numbers, so treat `low` as roughly a coin flip on the
 hidden set.
 
+## Comparison with the earlier web-chat build (`code/audit/`, Groq)
+
+Both builds scored with this harness on the same 32 samples:
+
+| Metric | web-chat build | this build |
+|---|---|---|
+| Status accuracy | 0.969 | **1.000** |
+| Step F1 | 0.917 | **0.982** |
+| Sequence accuracy | 0.500 | **0.812** |
+
+The gap is entirely in record discovery and treatment; both planners order steps correctly.
+The web-chat build misses: identifier-free accounts (case_21/25/27/28/31/32, no
+status-matched timing attribution and no learning of ownership from later captures), anonymised
+analytics (case_03/21/25), the replica-only profile (case_05, replication drift), the legacy
+contact-index copy that must be deleted, not redacted (case_10), and it over-links a connector
+shown on a multi-customer screenshot (case_15) and an account from an earlier request (case_17).
+Its one advantage, Groq vision for screenshots, is now in this build as `ghost_audit/vision.py`;
+a mock-API test confirmed it adds text without changing any decision.
+
 Known limitations: identifier-free records sharing one report window are a genuine
 ambiguity in the evidence (≈1 in 3 sample groups); security audit records that exist only
 in organiser truth cannot be produced.

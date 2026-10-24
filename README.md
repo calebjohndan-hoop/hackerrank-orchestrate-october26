@@ -11,10 +11,24 @@ python3 code/main.py --trace traces.json             # per-case reasoning: linke
 python3 code/evaluation/attribution_audit.py --list  # which outputs rest on activity-timing guesses, by confidence
 ```
 
-No API key is needed. `--llm` enables an optional `claude-haiku-5-5` fallback for request
-texts the intent rules cannot decide (reads `ANTHROPIC_API_KEY` from the environment); on
-this dataset it is never triggered. Reports: `code/evaluation/evaluation_report.md`,
-`code/evaluation/usage_report.md`.
+No API key is needed. Two optional model layers read keys from the environment only:
+
+- **Groq vision for screenshots**: set `GROQ_API_KEY` and every screenshot is also transcribed
+  by a Groq vision model (prompt: `code/prompts/image_extraction.md`); the text is *added* to local
+  OCR, cached in `code/cache/vision/`, and counted in the usage report.
+- **Intent fallback**: `--llm` with `ANTHROPIC_API_KEY` sends request texts the rules cannot decide
+  to `claude-haiku-5-5` (never triggered on this dataset).
+
+Windows PowerShell, final run with Groq:
+
+```powershell
+$env:GROQ_API_KEY = "<your key>"     # never commit it
+python code\main.py                   # writes output.csv and code\evaluation\usage_report.md
+python code\evaluation\main.py --custom
+```
+
+A full run regenerates `code/evaluation/usage_report.md`; `code/evaluation/evaluation_report.md`
+holds the metrics. Copy `code/.env.example` for the variable names.
 
 ## Architecture
 
@@ -23,6 +37,7 @@ this dataset it is never triggered. Reports: `code/evaluation/evaluation_report.
 | `ghost_audit/intent.py` | Does the text authorise deletion? Multilingual rules with negation; optional LLM fallback. |
 | `ghost_audit/identity.py` | Current + historical emails, phones, email hashes per `user_id` (from `user_audit_log.csv`). |
 | `ghost_audit/evidence.py` | Parses every evidence file into observations `(file, time, resource, identifiers, exists/pii/active)`: SQLite dumps (typed tables and JSON-payload replicas), JSON exports/bundles, 8 log dialects joined by trace id, text handovers, PDFs (pdftotext), screenshots (RapidOCR, cached). |
+| `ghost_audit/vision.py` | Optional Groq vision transcription of screenshots (stdlib HTTP, model fallback, retry, cache, usage). |
 | `ghost_audit/activity.py` | Activity stream as claims, plus grounded links: data-catalog links (with aliases), flows/backups that repopulated a record, deletion-worker timing. |
 | `ghost_audit/auditor.py` | Links resources to the subject, reconstructs the state at `audit_at`, attributes identifier-free records, plans steps. |
 | `ghost_audit/policy.py` | `deletion_rules.csv` → category → required treatment → finding / remediation / verification. |

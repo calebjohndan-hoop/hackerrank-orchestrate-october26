@@ -6,9 +6,10 @@ Usage (from the repository root):
     python3 code/main.py --trace traces.json   # also dump per-case reasoning (linked resources, states)
     python3 code/main.py --llm                 # allow an LLM fallback for undecidable request texts
 
-The pipeline is deterministic. The optional LLM (Anthropic API, key read from
-ANTHROPIC_API_KEY) is consulted only for request texts the multilingual intent rules
-cannot decide; on this dataset the rules decide every case, so no model calls are made.
+The decision pipeline is deterministic. Two optional model layers, both keyed from the
+environment: GROQ_API_KEY adds a Groq vision transcription of each screenshot to local OCR
+text; --llm with ANTHROPIC_API_KEY sends request texts the intent rules cannot decide to
+claude-haiku-5-5. A full run rewrites code/evaluation/usage_report.md.
 """
 
 from __future__ import annotations
@@ -25,7 +26,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ghost_audit.common import DATASET_DIR, REPO_ROOT  # noqa: E402
 from ghost_audit.intent import classify, classify_with_llm  # noqa: E402
 from ghost_audit.pipeline import build_auditor, load_requests, run_cases, write_output  # noqa: E402
-from ghost_audit.usage import UsageTracker  # noqa: E402
+from ghost_audit import vision  # noqa: E402
+from ghost_audit.usage import UsageTracker, render_report  # noqa: E402
 
 
 def main(argv=None):
@@ -35,6 +37,8 @@ def main(argv=None):
     ap.add_argument("--trace", default=None, help="optional JSON file with per-case reasoning")
     ap.add_argument("--llm", action="store_true", help="enable LLM fallback for undecided request intent")
     ap.add_argument("--usage", default=None, help="optional JSON file to write model-usage counters")
+    ap.add_argument("--usage-report", default=None,
+                    help="where to write the usage report (default: code/evaluation/usage_report.md on a full run)")
     args = ap.parse_args(argv)
 
     t0 = time.time()
@@ -63,13 +67,23 @@ def main(argv=None):
         Path(args.trace).write_text(json.dumps({k: {"status": v[0], "trace": v[2]} for k, v in results.items()},
                                                indent=1, default=str), encoding="utf-8")
     usage.requests = len(cases)
+    for call in vision.CALLS:
+        usage.record(call["model"], call["input_tokens"], call["output_tokens"], purpose="screenshot transcription")
+    usage.vision_cache_hits = vision.CACHE_HITS
+    report = args.usage_report
+    if report is None and Path(args.input).resolve() == (DATASET_DIR / "deletion_requests.csv").resolve():
+        report = str(REPO_ROOT / "code" / "evaluation" / "usage_report.md")
+    if report:
+        Path(report).write_text(render_report(usage.summary(), time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())),
+                                encoding="utf-8")
     if args.usage:
         Path(args.usage).write_text(json.dumps(usage.summary(), indent=1), encoding="utf-8")
     counts = {}
     for status, _, _ in results.values():
         counts[status] = counts.get(status, 0) + 1
     print(f"wrote {len(results)} rows to {args.output} in {time.time() - t0:.1f}s; status counts {counts}; "
-          f"model calls {usage.calls}")
+          f"model calls {usage.calls} (vision {'on' if vision.enabled() else 'off'}, "
+          f"{vision.CACHE_HITS} cached transcriptions)")
 
 
 if __name__ == "__main__":

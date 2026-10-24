@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+from . import vision
 from .common import (DATASET_DIR, EMAIL_RE, HASH_RE, REPO_ROOT, RESOURCE_RE, USER_RE, is_null, norm_email,
                      norm_phone, parse_ts, system_for)
 
@@ -479,6 +480,13 @@ def pdf_text(path: Path) -> str:
 
 
 def image_text(path: Path, rel: str) -> str:
+    """Local OCR text, plus a vision-model transcription when GROQ_API_KEY is set."""
+    text = ocr_text(path, rel)
+    extra = vision.transcribe(path)
+    return f"{text}\n{extra}" if extra else text
+
+
+def ocr_text(path: Path, rel: str) -> str:
     cache = {}
     if OCR_CACHE.exists():
         cache = json.loads(OCR_CACHE.read_text(encoding="utf-8"))
