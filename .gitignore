@@ -3,3 +3,4 @@ __pycache__/
 .env
 .venv/
 code.zip
+agent-trace.zip
